@@ -1,10 +1,118 @@
 import os
 import sys
-# Make sure Python finds the package in the current folder
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 import subprocess
+import venv
+# Make sure Python finds the package in the current folder
+script_dir = os.path.dirname(os.path.abspath(__file__))
+venv_dir = os.path.join(script_dir, ".venv")
+os.chdir(script_dir)
+sys.path.append(script_dir)
+
+if not os.path.exists("ezGUI"):
+    print("ezGUI not found. Downloading backend repository...")
+    repo_url = "https://github.com/sbrzo01alternate1-cell/Hobby-Python-EZ-GUI.git"
+    
+    try:
+        # Clone the repo into a temporary folder named 'temp_repo'
+        subprocess.run(["git", "clone", repo_url, "temp_repo"], check=True)
+        
+        # Move the ezGUI folder out of the clone into your main directory
+        os.rename("temp_repo/ezGUI", "ezGUI")
+        
+        # Clean up the rest of the cloned repository files
+        import shutil
+        shutil.rmtree("temp_repo")
+        print("ezGUI successfully installed!")
+        
+    except Exception as e:
+        print(f"Error downloading ezGUI: {e}")
+        print("Please ensure you have Git installed and an active internet connection.")
+        sys.exit(1)
+
+# 1. Check if we are currently running inside a virtual environment
+is_venv = sys.prefix != sys.base_prefix
+if not is_venv:
+    # 2. Check if the folder '.venv' already exists
+    if not os.path.exists(venv_dir):
+        #print("Creating virtual environment ('.venv'). This takes a moment...")
+        try:
+            # FIX: with_pip goes here, clear goes in .create()
+            builder = venv.EnvBuilder(with_pip=True)
+            builder.create(venv_dir)
+            print("Virtual environment created successfully!")
+        except subprocess.CalledProcessError:
+            # Fallback for Steam Deck if system pip is stripped out
+            print("Standard pip initialization failed. Creating bare environment...")
+            builder = venv.EnvBuilder(with_pip=False)
+            builder.create(venv_dir)
+            print("Bare virtual environment created! You may need to install pip manually.")
+    # Optional: stop execution here so they don't pollute global python
+    # sys.exit(0)
+
+
+# 3. Locate the specific pip executable based on the operating system
+if sys.platform == "win32":
+    pip_path = os.path.join(venv_dir, "Scripts", "pip.exe")
+else:
+    # Linux (Steam Deck) and macOS
+    pip_path = os.path.join(venv_dir, "bin", "pip")
+
+venv_python = pip_path.replace("pip", "python")
+try:
+    # Running 'python -c "import PIL"' returns exit code 0 if found, non-zero if missing
+    subprocess.run([venv_python, "-c", "import PIL"], check=True, capture_output=True)
+    Pillow_Installed = True
+except (subprocess.CalledProcessError, FileNotFoundError):
+    print("Pillow is NOT installed in the virtual environment.")
+    Pillow_Installed = False
+
+# 4. Run the virtual environment's pip to install Pillow
+if os.path.exists(pip_path):
+    venv_python = pip_path.replace("pip", "python")
+    if not Pillow_Installed:
+        print("Upgrading pip")
+        try:
+            # We pass -m pip using the venv's python interpreter to ensure it targets the correct path
+            # If your fallback skipped pip, we use the absolute pip path directly
+            subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True)
+            #subprocess.run([venv_python, "-m", "pip", "install", "pillow"], check=True)
+            print("Pip successfully upgraded in the virtual environment!")
+        except subprocess.CalledProcessError as e:
+            pass
+            print(f"Failed to update pip automatically: {e}")
+            print("You may need to run the installation manually inside the environment.")
+    if not Pillow_Installed:
+        print("Installing pillow")
+        try:
+            # We pass -m pip using the venv's python interpreter to ensure it targets the correct path
+            # If your fallback skipped pip, we use the absolute pip path directly
+            subprocess.run([venv_python, "-m", "pip", "install", "pillow"], check=True)
+            print("successfully installed pillow in the virtual environment!")
+        except subprocess.CalledProcessError as e:
+            pass
+            print(f"Failed to install pillow automatically: {e}")
+            print("You may need to run the installation manually inside the environment.")
+else:
+    pass
+    print(f"Could not locate pip at {pip_path}. The environment might be incomplete.")
+
+if not is_venv:
+    if not Pillow_Installed:
+        print()
+        print()
+        print()
+    print("ERROR: The program was not run with its virtual environment. Please relaunch the program with this:")
+    if sys.platform == "win32":
+        pass
+        print(f"{os.path.join(venv_dir, 'Scripts', 'python.exe')} {os.path.abspath(__file__)}")
+    else:
+        pass
+        print(f"{os.path.join(venv_dir, 'bin', 'python')} {os.path.abspath(__file__)}")
+    print()
+    print("The program is going to crash now. Oopsies...")
+    print()
+
+
 
 #this first line ACTUALLY calls global variables. The "r" at the front stands for real globals:
 #I didn't name it "globals" because there is a built in globals() function... but it doesn't work...
